@@ -96,9 +96,9 @@ def get_train_loader(root, which='source', img_size=256,
         lambda x: crop(x) if random.random() < prob else x)
 
     transform = transforms.Compose([
-        rand_crop,
+        # rand_crop, # otherwise reports error
         transforms.Resize([img_size, img_size]),
-        transforms.RandomHorizontalFlip(),
+        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5],
                              std=[0.5, 0.5, 0.5]),

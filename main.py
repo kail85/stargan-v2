@@ -116,7 +116,7 @@ if __name__ == '__main__':
                         help='Number of total iterations')
     parser.add_argument('--resume_iter', type=int, default=0,
                         help='Iterations to resume training/testing')
-    parser.add_argument('--batch_size', type=int, default=8,
+    parser.add_argument('--batch_size', type=int, default=8, 
                         help='Batch size for training')
     parser.add_argument('--val_batch_size', type=int, default=32,
                         help='Batch size for validation')
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, required=False, # was True
                         choices=['train', 'sample', 'eval', 'align'],
                         help='This argument is used in solver')
-    parser.add_argument('--num_workers', type=int, default=4,
+    parser.add_argument('--num_workers', type=int, default=1, # was 4, changed for windows
                         help='Number of workers used in DataLoader')
     parser.add_argument('--seed', type=int, default=777,
                         help='Seed for random number generator')
@@ -182,6 +182,8 @@ if __name__ == '__main__':
 
     # Train
     args.mode = 'train'
+    args.batch_size = 8
+    args.num_workers = 4
     args.num_domains = 3
     args.w_hpf = 0
     args.lambda_reg = 1 
