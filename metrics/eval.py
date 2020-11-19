@@ -40,6 +40,7 @@ def calculate_metrics(nets, args, step, mode):
         if mode == 'reference':
             path_ref = os.path.join(args.val_img_dir, trg_domain)
             loader_ref = get_eval_loader(root=path_ref,
+                                         img_type=args.image_datatype,
                                          img_size=args.img_size,
                                          batch_size=args.val_batch_size,
                                          imagenet_normalize=False,
@@ -48,6 +49,7 @@ def calculate_metrics(nets, args, step, mode):
         for src_idx, src_domain in enumerate(src_domains):
             path_src = os.path.join(args.val_img_dir, src_domain)
             loader_src = get_eval_loader(root=path_src,
+                                         img_type=args.image_datatype,
                                          img_size=args.img_size,
                                          batch_size=args.val_batch_size,
                                          imagenet_normalize=False)

@@ -19,6 +19,10 @@ from core.data_loader import get_train_loader
 from core.data_loader import get_test_loader
 from core.solver import Solver
 
+from PIL import Image
+import numpy as np
+import cv2
+
 #%%
 def str2bool(v):
     return v.lower() in ('true')
@@ -28,11 +32,29 @@ def subdirs(dname):
     return [d for d in os.listdir(dname)
             if os.path.isdir(os.path.join(dname, d))]
 
+def find_img_datatype(image_root_path):
+    domain_names = os.listdir(image_root_path)
+    image_path = os.path.join(image_root_path, domain_names[0])
+
+    image = Image.open(os.path.join(image_path, os.listdir(image_path)[0]))
+    if image.mode is 'L':
+        img_datatype = cv2.CV_8UC1
+    elif image.mode is 'I':
+        img_datatype = cv2.CV_16UC1
+    elif image.mode is 'RGB':
+        img_datatype = cv2.CV_8UC3
+    else:
+        raise ValueError('Unknown image data type.')
+
+    return img_datatype
+
 
 def main(args):
     print(args)
     cudnn.benchmark = True
     torch.manual_seed(args.seed)
+
+    args.img_datatype = find_img_datatype(args.train_img_dir)
 
     solver = Solver(args)
 
@@ -41,18 +63,21 @@ def main(args):
         assert len(subdirs(args.val_img_dir)) == args.num_domains
         loaders = Munch(src=get_train_loader(root=args.train_img_dir,
                                              which='source',
+                                             img_type = args.img_datatype,
                                              img_size=args.img_size,
                                              batch_size=args.batch_size,
                                              prob=args.randcrop_prob,
                                              num_workers=args.num_workers),
                         ref=get_train_loader(root=args.train_img_dir,
                                              which='reference',
+                                             img_type = args.img_datatype,
                                              img_size=args.img_size,
                                              batch_size=args.batch_size,
                                              prob=args.randcrop_prob,
                                              num_workers=args.num_workers),
                         val=get_test_loader(root=args.val_img_dir,
-                                            img_size=args.img_size,
+                                            img_type = args.img_datatype,
+                                            img_size=args.img_size,                                            
                                             batch_size=args.val_batch_size,
                                             shuffle=True,
                                             num_workers=args.num_workers))
@@ -61,11 +86,13 @@ def main(args):
         assert len(subdirs(args.src_dir)) == args.num_domains
         assert len(subdirs(args.ref_dir)) == args.num_domains
         loaders = Munch(src=get_test_loader(root=args.src_dir,
+                                            img_type = args.img_datatype,
                                             img_size=args.img_size,
                                             batch_size=args.val_batch_size,
                                             shuffle=False,
                                             num_workers=args.num_workers),
                         ref=get_test_loader(root=args.ref_dir,
+                                            img_type = args.img_datatype,
                                             img_size=args.img_size,
                                             batch_size=args.val_batch_size,
                                             shuffle=False,
@@ -137,7 +164,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, required=False, # was True
                         choices=['train', 'sample', 'eval', 'align'],
                         help='This argument is used in solver')
-    parser.add_argument('--num_workers', type=int, default=1, # was 4, changed for windows
+    parser.add_argument('--num_workers', type=int, default=1,
                         help='Number of workers used in DataLoader')
     parser.add_argument('--seed', type=int, default=777,
                         help='Seed for random number generator')
@@ -182,16 +209,20 @@ if __name__ == '__main__':
 
     # Train
     args.mode = 'train'
-    args.batch_size = 8
-    args.num_workers = 4
-    args.num_domains = 3
+
+    args.batch_size = 2  # 2 for M60
+    args.num_workers = 0 # must set to 0 maybe windows issue    
+    args.eval_every = np.iinfo(np.int).max
     args.w_hpf = 0
     args.lambda_reg = 1 
     args.lambda_sty = 1 
     args.lambda_ds = 2 
     args.lambda_cyc = 1 
-    args.train_img_dir = os.path.join('data', 'afhq', 'train')
-    args.val_img_dir = os.path.join('data', 'afhq', 'val')
+
+    args.num_domains = 4
+    args.img_size = 512 # we don't want to resize in the fly
+    args.train_img_dir = os.path.join('data', 'vdg_trainsition', 'train')
+    args.val_img_dir = os.path.join('data', 'vdg_trainsition', 'val') # all images are evaluated
 
     # # Inference
     # args.mode = 'sample' 
@@ -201,6 +232,6 @@ if __name__ == '__main__':
     # args.checkpoint_dir = 'expr\\checkpoints\\afhq'
     # args.result_dir = 'expr\\results\\afhq'
     # args.src_dir = 'assets\\representative\\afhq\\src'
-    # args.ref_dir = 'assets\\representative\\afhq\\ref'
+    # args.ref_dir = 'assets\\representative\\afhq\\ref'        
 
     main(args)

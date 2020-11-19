@@ -11,6 +11,7 @@ Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 import copy
 import math
 
+import cv2
 from munch import Munch
 import numpy as np
 import torch
@@ -133,17 +134,26 @@ class HighPass(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, img_size=256, style_dim=64, max_conv_dim=512, w_hpf=1):
+    def __init__(self, img_size=256, img_datatype=cv2.CV_8UC3, style_dim=64, max_conv_dim=512, w_hpf=1):
         super().__init__()
         dim_in = 2**14 // img_size
         self.img_size = img_size
-        self.from_rgb = nn.Conv2d(3, dim_in, 3, 1, 1)
+
+        if img_datatype == cv2.CV_8UC3:
+            self.from_rgb = nn.Conv2d(3, dim_in, 3, 1, 1)
+            out_layer = nn.Conv2d(dim_in, 3, 1, 1, 0)
+        elif (img_datatype == cv2.CV_8UC1) or (img_datatype == cv2.CV_16UC1):
+            self.from_rgb = nn.Conv2d(1, dim_in, 3, 1, 1)
+            out_layer = nn.Conv2d(dim_in, 1, 1, 1, 0)
+        else:
+            raise ValueError('Unknown image data type.')
+
         self.encode = nn.ModuleList()
         self.decode = nn.ModuleList()
         self.to_rgb = nn.Sequential(
             nn.InstanceNorm2d(dim_in, affine=True),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(dim_in, 3, 1, 1, 0))
+            out_layer)
 
         # down/up-sampling blocks
         repeat_num = int(np.log2(img_size)) - 4
@@ -219,11 +229,17 @@ class MappingNetwork(nn.Module):
 
 
 class StyleEncoder(nn.Module):
-    def __init__(self, img_size=256, style_dim=64, num_domains=2, max_conv_dim=512):
+    def __init__(self, img_size=256, img_datatype=cv2.CV_8UC3, style_dim=64, num_domains=2, max_conv_dim=512):
         super().__init__()
         dim_in = 2**14 // img_size
         blocks = []
-        blocks += [nn.Conv2d(3, dim_in, 3, 1, 1)]
+
+        if img_datatype == cv2.CV_8UC3:
+            blocks += [nn.Conv2d(3, dim_in, 3, 1, 1)]
+        elif (img_datatype == cv2.CV_8UC1) or (img_datatype == cv2.CV_16UC1):
+            blocks += [nn.Conv2d(1, dim_in, 3, 1, 1)]
+        else:
+            raise ValueError('Unknown image data type.')
 
         repeat_num = int(np.log2(img_size)) - 2
         for _ in range(repeat_num):
@@ -253,11 +269,17 @@ class StyleEncoder(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, img_size=256, num_domains=2, max_conv_dim=512):
+    def __init__(self, img_size=256, img_datatype=cv2.CV_8UC3, num_domains=2, max_conv_dim=512):
         super().__init__()
         dim_in = 2**14 // img_size
         blocks = []
-        blocks += [nn.Conv2d(3, dim_in, 3, 1, 1)]
+        
+        if img_datatype == cv2.CV_8UC3:
+            blocks += [nn.Conv2d(3, dim_in, 3, 1, 1)]
+        elif (img_datatype == cv2.CV_8UC1) or (img_datatype == cv2.CV_16UC1):
+            blocks += [nn.Conv2d(1, dim_in, 3, 1, 1)]
+        else:
+            raise ValueError('Unknown image data type.')        
 
         repeat_num = int(np.log2(img_size)) - 2
         for _ in range(repeat_num):
@@ -280,10 +302,10 @@ class Discriminator(nn.Module):
 
 
 def build_model(args):
-    generator = Generator(args.img_size, args.style_dim, w_hpf=args.w_hpf)
+    generator = Generator(args.img_size, args.img_datatype, args.style_dim, w_hpf=args.w_hpf)
     mapping_network = MappingNetwork(args.latent_dim, args.style_dim, args.num_domains)
-    style_encoder = StyleEncoder(args.img_size, args.style_dim, args.num_domains)
-    discriminator = Discriminator(args.img_size, args.num_domains)
+    style_encoder = StyleEncoder(args.img_size, args.img_datatype, args.style_dim, args.num_domains)
+    discriminator = Discriminator(args.img_size, args.img_datatype, args.num_domains)
     generator_ema = copy.deepcopy(generator)
     mapping_network_ema = copy.deepcopy(mapping_network)
     style_encoder_ema = copy.deepcopy(style_encoder)

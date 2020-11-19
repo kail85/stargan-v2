@@ -13,6 +13,7 @@ from itertools import chain
 import os
 import random
 
+import cv2
 from munch import Munch
 from PIL import Image
 import numpy as np
@@ -39,7 +40,7 @@ class DefaultDataset(data.Dataset):
 
     def __getitem__(self, index):
         fname = self.samples[index]
-        img = Image.open(fname).convert('RGB')
+        img = Image.open(fname)
         if self.transform is not None:
             img = self.transform(img)
         return img
@@ -67,8 +68,8 @@ class ReferenceDataset(data.Dataset):
     def __getitem__(self, index):
         fname, fname2 = self.samples[index]
         label = self.targets[index]
-        img = Image.open(fname).convert('RGB')
-        img2 = Image.open(fname2).convert('RGB')
+        img = Image.open(fname)
+        img2 = Image.open(fname2)
         if self.transform is not None:
             img = self.transform(img)
             img2 = self.transform(img2)
@@ -84,9 +85,29 @@ def _make_balanced_sampler(labels):
     weights = class_weights[labels]
     return WeightedRandomSampler(weights, len(weights))
 
+def loader(path):
+    return Image.open(path)
 
-def get_train_loader(root, which='source', img_size=256,
-                     batch_size=8, prob=0.5, num_workers=4):
+def __toTensor(imgPIL, img_type):
+    # default toTensor is for uint8 data
+
+    img = np.array(imgPIL)
+
+    if img_type == cv2.CV_8UC1:
+        img = img / 255
+    if img_type == cv2.CV_16UC1:
+        img = img / 65535
+    else:
+        raise ValueError('Unknown image bit depth.')
+    
+    tensorImg = torch.zeros([1, imgPIL.size[0], imgPIL.size[1]], dtype = torch.float32)
+    tensorImg[0, :, :] = torch.from_numpy(img)
+
+    return tensorImg
+
+
+def get_train_loader(root, which='source', img_type=cv2.CV_8UC3,
+                     img_size=256, batch_size=8, prob=0.5, num_workers=4):
     print('Preparing DataLoader to fetch %s images '
           'during the training phase...' % which)
 
@@ -95,17 +116,25 @@ def get_train_loader(root, which='source', img_size=256,
     rand_crop = transforms.Lambda(
         lambda x: crop(x) if random.random() < prob else x)
 
-    transform = transforms.Compose([
-        # rand_crop, # otherwise reports error
-        transforms.Resize([img_size, img_size]),
-        # transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                             std=[0.5, 0.5, 0.5]),
-    ])
+    if img_type == cv2.CV_8UC3:
+        transform = transforms.Compose([        
+            rand_crop,
+            transforms.Resize([img_size, img_size]),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                std=[0.5, 0.5, 0.5]),
+        ])
+    elif (img_type == cv2.CV_8UC1) or (img_type == cv2.CV_16UC1):
+        transform = transforms.Compose([        
+            transforms.Lambda(lambda img: __toTensor(img, img_type)),
+            transforms.Normalize(mean=[0.5], std=[0.5]),
+        ])        
+    else:
+        raise ValueError('Unknown image bit depth.')
 
     if which == 'source':
-        dataset = ImageFolder(root, transform)
+        dataset = ImageFolder(root, transform, loader=loader)
     elif which == 'reference':
         dataset = ReferenceDataset(root, transform)
     else:
@@ -120,7 +149,7 @@ def get_train_loader(root, which='source', img_size=256,
                            drop_last=True)
 
 
-def get_eval_loader(root, img_size=256, batch_size=32,
+def get_eval_loader(root, img_type=cv2.CV_8UC3, img_size=256, batch_size=32,
                     imagenet_normalize=True, shuffle=True,
                     num_workers=4, drop_last=False):
     print('Preparing DataLoader for the evaluation phase...')
@@ -133,12 +162,21 @@ def get_eval_loader(root, img_size=256, batch_size=32,
         mean = [0.5, 0.5, 0.5]
         std = [0.5, 0.5, 0.5]
 
-    transform = transforms.Compose([
-        transforms.Resize([img_size, img_size]),
-        transforms.Resize([height, width]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=mean, std=std)
-    ])
+    if img_type == cv2.CV_8UC3:
+        transform = transforms.Compose([
+            transforms.Resize([img_size, img_size]),
+            transforms.Resize([height, width]),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=mean, std=std)
+        ])
+    elif (img_type == cv2.CV_8UC1) or (img_type == cv2.CV_16UC1):
+        transform = transforms.Compose([
+            transforms.Lambda(lambda img: __toTensor(img, img_type)),
+            transforms.Normalize(mean=[0.5], std=[0.5]),
+        ])
+    else:
+        raise ValueError('Unknown image bit depth.')
+
 
     dataset = DefaultDataset(root, transform=transform)
     return data.DataLoader(dataset=dataset,
@@ -149,17 +187,26 @@ def get_eval_loader(root, img_size=256, batch_size=32,
                            drop_last=drop_last)
 
 
-def get_test_loader(root, img_size=256, batch_size=32,
-                    shuffle=True, num_workers=4):
+def get_test_loader(root, img_type=cv2.CV_8UC3, img_size=256,
+                    batch_size=32, shuffle=True, num_workers=4):
     print('Preparing DataLoader for the generation phase...')
-    transform = transforms.Compose([
-        transforms.Resize([img_size, img_size]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                             std=[0.5, 0.5, 0.5]),
-    ])
 
-    dataset = ImageFolder(root, transform)
+    if img_type == cv2.CV_8UC3:
+        transform = transforms.Compose([
+            transforms.Resize([img_size, img_size]),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                std=[0.5, 0.5, 0.5]),
+        ])
+    elif (img_type == cv2.CV_8UC1) or (img_type == cv2.CV_16UC1):
+        transform = transforms.Compose([        
+            transforms.Lambda(lambda img: __toTensor(img, img_type)),
+            transforms.Normalize(mean=[0.5], std=[0.5]),
+        ])        
+    else:
+        raise ValueError('Unknown image bit depth.')    
+
+    dataset = ImageFolder(root, transform, loader=loader)
     return data.DataLoader(dataset=dataset,
                            batch_size=batch_size,
                            shuffle=shuffle,
