@@ -42,13 +42,15 @@ data
 
 expr
     |-checkpoints
-        | model....ckpt
-        |-samples
-            | debug images
+        |-[exp_name]
+            | model....ckpt
+            |-samples
+                | debug images
+                | log.txt
 '''
 
 #%%
-mode = 'train' # train or test
+mode = 'train' # 'train' or 'test'
 exp_name = 'vdg_transition' # which checkpoint to load
 
 def set_train(args):
@@ -70,7 +72,11 @@ def set_train(args):
     args.train_img_dir = os.path.join('data', exp_name, 'train')
     args.val_img_dir = os.path.join('data', exp_name, 'val') # note all images are evaluated
 
-    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name)
+    exp_ind = 0
+    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name + f'_%02d'%exp_ind)
+    if os.path.exists(args.checkpoint_dir):
+        args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name + f'_%02d'%(exp_ind+1))
+
     args.sample_dir = os.path.join(args.checkpoint_dir, 'samples')
 
     # print/save log every n images being processed
@@ -91,7 +97,7 @@ def set_inference(args):
     args.make_video = False
 
     args.resume_iter = 40000  # to determine ckpt file to load
-    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name)    
+    args.checkpoint_dir = os.path.join('expr', 'checkpoints', 'vdg_transition_00')    
 
     args.src_dir = os.path.join('expr', 'inference_data', 'src')
     args.ref_dir = os.path.join('expr', 'inference_data', 'ref')
