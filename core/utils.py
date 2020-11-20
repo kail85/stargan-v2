@@ -16,6 +16,7 @@ from shutil import copyfile
 
 from tqdm import tqdm
 import ffmpeg
+import cv2
 
 import numpy as np
 import torch
@@ -206,9 +207,9 @@ def video_ref(nets, args, x_src, x_ref, y_ref, fname):
         if s_prev is None:
             x_prev, y_prev, s_prev = x_next, y_next, s_next
             continue
-        if y_prev != y_next:
-            x_prev, y_prev, s_prev = x_next, y_next, s_next
-            continue
+        # if y_prev != y_next:
+        #     x_prev, y_prev, s_prev = x_next, y_next, s_next
+        #     continue
 
         interpolated = interpolate(nets, args, x_src, s_prev, s_next)
         entries = [x_prev, x_next]
@@ -220,7 +221,7 @@ def video_ref(nets, args, x_src, x_ref, y_ref, fname):
     # append last frame 10 time
     for _ in range(10):
         video.append(frames[-1:])
-    video = tensor2ndarray255(torch.cat(video))
+    video = tensor2ndarray(args, torch.cat(video))
     save_video(fname, video)
 
 
@@ -274,6 +275,13 @@ def save_video(fname, images, output_fps=30, vcodec='libx264', filters=''):
     process.wait()
 
 
-def tensor2ndarray255(images):
+def tensor2ndarray(args, images):
     images = torch.clamp(images * 0.5 + 0.5, 0, 1)
-    return images.cpu().numpy().transpose(0, 2, 3, 1) * 255
+    if (args.img_datatype == cv2.CV_8UC1) or (args.img_datatype == cv2.CV_8UC3):
+        scale = 255
+    elif args.img_datatype == cv2.CV_16UC1:
+        scale = 65535
+    else:
+        raise ValueError('Unknown image data type.')
+
+    return images.cpu().numpy().transpose(0, 2, 3, 1) * scale

@@ -14,6 +14,7 @@ import argparse
 from munch import Munch
 from torch.backends import cudnn
 import torch
+from torch.utils import data
 
 from core.data_loader import get_train_loader
 from core.data_loader import get_test_loader
@@ -22,6 +23,82 @@ from core.solver import Solver
 from PIL import Image
 import numpy as np
 import cv2
+
+'''
+data
+    |-[exp_name]
+        |-train
+            |-class01
+                | images....png
+            |-class02
+                | images....png
+            |-...
+        |-val
+            |-class01
+                | images....png
+            |-class02
+                | images....png
+            |-...
+
+expr
+    |-checkpoints
+        | model....ckpt
+        |-samples
+            | debug images
+'''
+
+#%%
+mode = 'train' # train or test
+exp_name = 'vdg_transition' # which checkpoint to load
+
+def set_train(args):
+    args.mode = 'train'    
+
+    args.total_iters = 2 # num of images to process in total
+    args.batch_size = 2  # 2 for M60
+    args.num_workers = 0 # must set to 0 maybe windows issue        
+
+    args.w_hpf = 0 # alignment
+
+    args.lambda_reg = 1 
+    args.lambda_sty = 1 
+    args.lambda_ds = 2 
+    args.lambda_cyc = 1 
+
+    args.num_domains = 4
+    args.img_size = 512 # we don't want to resize in the fly
+    args.train_img_dir = os.path.join('data', exp_name, 'train')
+    args.val_img_dir = os.path.join('data', exp_name, 'val') # note all images are evaluated
+
+    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name)
+    args.sample_dir = os.path.join(args.checkpoint_dir, 'samples')
+
+    # print/save log every n images being processed
+    args.print_every = 1
+    args.sample_every = 5000
+    args.save_every   = 5000
+    args.eval_every = np.iinfo(np.int).max # never evaluate
+
+    return args
+
+
+def set_inference(args):
+    args.mode = 'sample'
+        
+    args.num_domains = 4
+    args.w_hpf = 0
+    
+    args.make_video = False
+
+    args.resume_iter = 40000  # to determine ckpt file to load
+    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name)    
+
+    args.src_dir = os.path.join('expr', 'inference_data', 'src')
+    args.ref_dir = os.path.join('expr', 'inference_data', 'ref')
+    args.result_dir = os.path.join('expr', 'inference_data', 'result')
+
+    return args
+
 
 #%%
 def str2bool(v):
@@ -54,7 +131,10 @@ def main(args):
     cudnn.benchmark = True
     torch.manual_seed(args.seed)
 
-    args.img_datatype = find_img_datatype(args.train_img_dir)
+    if args.mode == "train":
+        args.img_datatype = find_img_datatype(args.train_img_dir)
+    elif args.mode == "sample":
+        args.img_datatype = find_img_datatype(args.src_dir)
 
     solver = Solver(args)
 
@@ -207,33 +287,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    # Train
-    args.mode = 'train'
-
-    args.total_iters = 2
-    args.batch_size = 2  # 2 for M60
-    args.num_workers = 0 # must set to 0 maybe windows issue    
-    args.eval_every = np.iinfo(np.int).max # never evaluate
-    args.w_hpf = 0 # alignment
-    args.lambda_reg = 1 
-    args.lambda_sty = 1 
-    args.lambda_ds = 2 
-    args.lambda_cyc = 1            
-    args.num_domains = 4
-    args.img_size = 512 # we don't want to resize in the fly
-    args.train_img_dir = os.path.join('data', 'vdg_trainsition', 'train')
-    args.val_img_dir = os.path.join('data', 'vdg_trainsition', 'val') # all images are evaluated
-
-    args.print_every = 1
-
-    # # Inference
-    # args.mode = 'sample' 
-    # args.num_domains = 3 
-    # args.resume_iter = 100000 
-    # args.w_hpf = 0               
-    # args.checkpoint_dir = 'expr\\checkpoints\\afhq'
-    # args.result_dir = 'expr\\results\\afhq'
-    # args.src_dir = 'assets\\representative\\afhq\\src'
-    # args.ref_dir = 'assets\\representative\\afhq\\ref'        
+    if mode == 'train':
+        args = set_train(args)
+    else:    
+        args = set_inference(args)
 
     main(args)
