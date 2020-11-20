@@ -317,9 +317,14 @@ def build_model(args):
     nets_ema = Munch(generator=generator_ema,
                      mapping_network=mapping_network_ema,
                      style_encoder=style_encoder_ema)
-
+    
     if args.w_hpf > 0:
-        fan = FAN(fname_pretrained=args.wing_path).eval()
+        if args.img_datatype == cv2.CV_8UC3:
+            n_channels = 3
+        else:
+            n_channels = 1
+
+        fan = FAN(n_channels=n_channels, fname_pretrained=args.wing_path).eval()
         nets.fan = fan
         nets_ema.fan = fan
 

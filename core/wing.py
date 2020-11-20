@@ -188,14 +188,14 @@ class ConvBlock(nn.Module):
 
 
 class FAN(nn.Module):
-    def __init__(self, num_modules=1, end_relu=False, num_landmarks=98, fname_pretrained=None):
+    def __init__(self, n_channels=3, num_modules=1, end_relu=False, num_landmarks=98, fname_pretrained=None):
         super(FAN, self).__init__()
         self.num_modules = num_modules
         self.end_relu = end_relu
 
         # Base part
         self.conv1 = CoordConvTh(256, 256, True, False,
-                                 in_channels=3, out_channels=64,
+                                 in_channels=n_channels, out_channels=64,
                                  kernel_size=7, stride=2, padding=3)
         self.bn1 = nn.BatchNorm2d(64)
         self.conv2 = ConvBlock(64, 128)

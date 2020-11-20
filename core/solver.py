@@ -12,6 +12,7 @@ import os
 from os.path import join as ospj
 import time
 import datetime
+from datetime import datetime as dt
 from munch import Munch
 
 import torch
@@ -67,6 +68,11 @@ class Solver(nn.Module):
     def _save_checkpoint(self, step):
         for ckptio in self.ckptios:
             ckptio.save(step)
+
+    def _get_current_datatime(self):
+        now = dt.now()
+        dt_str = now.strftime("%m/%d/%Y %H:%M:%S")
+        return dt_str
 
     def _load_checkpoint(self, step):
         for ckptio in self.ckptios:
@@ -155,6 +161,10 @@ class Solver(nn.Module):
                 all_losses['G/lambda_ds'] = args.lambda_ds
                 log += ' '.join(['%s: [%.4f]' % (key, value) for key, value in all_losses.items()])
                 print(log)
+                os.makedirs(args.sample_dir, exist_ok=True)
+                dt_str = self._get_current_datatime()                
+                with open(os.path.join(args.sample_dir, 'log.txt'), "a") as log_file:
+                    log_file.write('%s\n' % (dt_str + "\t" + log))
 
             # generate images for debugging
             if (i+1) % args.sample_every == 0:

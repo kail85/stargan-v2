@@ -210,19 +210,21 @@ if __name__ == '__main__':
     # Train
     args.mode = 'train'
 
+    args.total_iters = 2
     args.batch_size = 2  # 2 for M60
     args.num_workers = 0 # must set to 0 maybe windows issue    
-    args.eval_every = np.iinfo(np.int).max
-    args.w_hpf = 0
+    args.eval_every = np.iinfo(np.int).max # never evaluate
+    args.w_hpf = 0 # alignment
     args.lambda_reg = 1 
     args.lambda_sty = 1 
     args.lambda_ds = 2 
-    args.lambda_cyc = 1 
-
+    args.lambda_cyc = 1            
     args.num_domains = 4
     args.img_size = 512 # we don't want to resize in the fly
     args.train_img_dir = os.path.join('data', 'vdg_trainsition', 'train')
     args.val_img_dir = os.path.join('data', 'vdg_trainsition', 'val') # all images are evaluated
+
+    args.print_every = 1
 
     # # Inference
     # args.mode = 'sample' 
