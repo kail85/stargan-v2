@@ -165,7 +165,7 @@ def main(args):
                                             img_type = args.img_datatype,
                                             img_size=args.img_size,                                            
                                             batch_size=args.val_batch_size,
-                                            shuffle=True,
+                                            shuffle=False,
                                             num_workers=args.num_workers))
         solver.train(loaders)
     elif args.mode == 'sample':
