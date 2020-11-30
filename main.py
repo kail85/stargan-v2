@@ -50,25 +50,25 @@ expr
 '''
 
 #%%
-mode = 'train' # 'train' or 'test'
-exp_name = 'vdg_transition' # which checkpoint to load
+mode = 'test' # 'train' or 'test'
+exp_name = 'ccvdg' # which checkpoint to load
 
 def set_train(args):
-    args.mode = 'train'    
+    args.mode = 'train'
 
-    args.total_iters = 2 # num of images to process in total
-    args.batch_size = 2  # 2 for M60
-    args.num_workers = 0 # must set to 0 maybe windows issue        
+    args.total_iters = 3000*4*20 # num of images to process in total
+    args.batch_size = 4  # 2 for M60
+    args.num_workers = 0 # must set to 0 maybe windows issue
 
     args.w_hpf = 0 # alignment
 
-    args.lambda_reg = 1 
-    args.lambda_sty = 1 
-    args.lambda_ds = 2 
-    args.lambda_cyc = 1 
+    args.lambda_reg = 1
+    args.lambda_sty = 1
+    args.lambda_ds = 2
+    args.lambda_cyc = 1
 
     args.num_domains = 4
-    args.img_size = 512 # we don't want to resize in the fly
+    args.img_size = 256 # we don't want to resize in the fly
     args.train_img_dir = os.path.join('data', exp_name, 'train')
     args.val_img_dir = os.path.join('data', exp_name, 'val') # note all images are evaluated
 
@@ -80,7 +80,7 @@ def set_train(args):
     args.sample_dir = os.path.join(args.checkpoint_dir, 'samples')
 
     # print/save log every n images being processed
-    args.print_every = 1
+    args.print_every = 1000
     args.sample_every = 5000
     args.save_every   = 5000
     args.eval_every = np.iinfo(np.int).max # never evaluate
@@ -90,18 +90,21 @@ def set_train(args):
 
 def set_inference(args):
     args.mode = 'sample'
-        
+
     args.num_domains = 4
     args.w_hpf = 0
-    
-    args.make_video = False
+
+    # args.batch_size = 2  # 2 for M60
+    args.num_workers = 0 # must set to 0 maybe windows issue
+
+    args.make_video = True
 
     args.resume_iter = 40000  # to determine ckpt file to load
-    args.checkpoint_dir = os.path.join('expr', 'checkpoints', 'vdg_transition_00')    
+    args.checkpoint_dir = os.path.join('expr', 'checkpoints', exp_name + '_00')
 
-    args.src_dir = os.path.join('expr', 'inference_data', 'src')
-    args.ref_dir = os.path.join('expr', 'inference_data', 'ref')
-    args.result_dir = os.path.join('expr', 'inference_data', 'result')
+    args.src_dir = os.path.join('data', exp_name, 'test', 'test2')
+    args.ref_dir = os.path.join('data', exp_name, 'test', 'test2')
+    args.result_dir = os.path.join('expr', 'checkpoints', exp_name + '_00', 'result')
 
     return args
 
@@ -163,7 +166,7 @@ def main(args):
                                              num_workers=args.num_workers),
                         val=get_test_loader(root=args.val_img_dir,
                                             img_type = args.img_datatype,
-                                            img_size=args.img_size,                                            
+                                            img_size=args.img_size,
                                             batch_size=args.val_batch_size,
                                             shuffle=False,
                                             num_workers=args.num_workers))
@@ -229,7 +232,7 @@ if __name__ == '__main__':
                         help='Number of total iterations')
     parser.add_argument('--resume_iter', type=int, default=0,
                         help='Iterations to resume training/testing')
-    parser.add_argument('--batch_size', type=int, default=8, 
+    parser.add_argument('--batch_size', type=int, default=8,
                         help='Batch size for training')
     parser.add_argument('--val_batch_size', type=int, default=32,
                         help='Batch size for validation')
@@ -295,7 +298,7 @@ if __name__ == '__main__':
 
     if mode == 'train':
         args = set_train(args)
-    else:    
+    else:
         args = set_inference(args)
 
     main(args)

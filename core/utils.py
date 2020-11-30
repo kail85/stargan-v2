@@ -177,7 +177,7 @@ def interpolate(nets, args, x_src, s_prev, s_next):
 def slide(entries, margin=32):
     """Returns a sliding reference window.
     Args:
-        entries: a list containing two reference images, x_prev and x_next, 
+        entries: a list containing two reference images, x_prev and x_next,
                  both of which has a shape (1, 3, 256, 256)
     Returns:
         canvas: output slide of shape (num_frames, 3, 256*2, 256+margin)
@@ -214,6 +214,8 @@ def video_ref(nets, args, x_src, x_ref, y_ref, fname):
         interpolated = interpolate(nets, args, x_src, s_prev, s_next)
         entries = [x_prev, x_next]
         slided = slide(entries)  # (T, C, 256*2, 256)
+        if slided.shape[1] == 1:
+            slided = torch.cat((slided, slided, slided), 1)
         frames = torch.cat([slided, interpolated], dim=3).cpu()  # (T, C, 256*2, 256*(batch+1))
         video.append(frames)
         x_prev, y_prev, s_prev = x_next, y_next, s_next
@@ -222,7 +224,7 @@ def video_ref(nets, args, x_src, x_ref, y_ref, fname):
     for _ in range(10):
         video.append(frames[-1:])
     video = tensor2ndarray(args, torch.cat(video))
-    save_video(fname, video)
+    save_video(args, fname, video)
 
 
 @torch.no_grad()
@@ -260,17 +262,28 @@ def video_latent(nets, args, x_src, y_list, z_list, psi, fname):
     save_video(fname, video)
 
 
-def save_video(fname, images, output_fps=30, vcodec='libx264', filters=''):
+def save_video(args, fname, images, output_fps=30, vcodec='libx264', filters=''):
     assert isinstance(images, np.ndarray), "images should be np.array: NHWC"
     num_frames, height, width, channels = images.shape
-    stream = ffmpeg.input('pipe:', format='rawvideo', 
-                          pix_fmt='rgb24', s='{}x{}'.format(width, height))
+
+    if (args.img_datatype == cv2.CV_8UC1) or (args.img_datatype == cv2.CV_8UC3):
+        target_datatype = np.uint8
+        pixel_format = 'rgb24'
+    elif args.img_datatype == cv2.CV_16UC1:
+        target_datatype = np.uint16
+        pixel_format = 'rgb48'
+    else:
+        raise ValueError('Unknown image data type.')
+
+    stream = ffmpeg.input('pipe:', format='rawvideo',
+                          pix_fmt=pixel_format, s='{}x{}'.format(width, height))
     stream = ffmpeg.filter(stream, 'setpts', '2*PTS')  # 2*PTS is for slower playback
     stream = ffmpeg.output(stream, fname, pix_fmt='yuv420p', vcodec=vcodec, r=output_fps)
     stream = ffmpeg.overwrite_output(stream)
     process = ffmpeg.run_async(stream, pipe_stdin=True)
+
     for frame in tqdm(images, desc='writing video to %s' % fname):
-        process.stdin.write(frame.astype(np.uint8).tobytes())
+        process.stdin.write(frame.astype(target_datatype).tobytes())
     process.stdin.close()
     process.wait()
 
