@@ -35,7 +35,11 @@ class CheckpointIO(object):
         print('Loading checkpoint from %s...' % fname)
         if torch.cuda.is_available():
             module_dict = torch.load(fname)
+            for name, module in self.module_dict.items():
+                module.load_state_dict(module_dict[name])
+                module = module.cuda()
         else:
             module_dict = torch.load(fname, map_location=torch.device('cpu'))
-        for name, module in self.module_dict.items():
-            module.load_state_dict(module_dict[name])
+            for name, module in self.module_dict.items():
+                module.load_state_dict(module_dict[name])
+                module.to(torch.device("cpu"))
