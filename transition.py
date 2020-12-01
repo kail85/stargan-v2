@@ -40,8 +40,8 @@ def image_to_tensor(image_file):
     return tensorImg
 
 
-image_content = image_to_tensor(ospj('data', 'ccvdg', 'test', 'test_transition', 'cl0073_HS_D_rc_20080321.png'))
-image_style   = image_to_tensor(ospj('data', 'ccvdg', 'test', 'test_transition', 'cl0067_HS_D_rc_20070624.png'))
+image_content = image_to_tensor(ospj('data', 'ccvdg', 'test', 'test_transition', 'xxx.png'))
+image_style   = image_to_tensor(ospj('data', 'ccvdg', 'test', 'test_transition', 'xxx.png'))
 content_label   = torch.tensor([0])
 style_label     = torch.tensor([3])
 
@@ -117,4 +117,4 @@ def interplation(net, image_content, image_style, content_label, style_label):
 
 
 image_inters = interplation(net, image_content, image_style, content_label, style_label)
-save_image(image_inters, image_inters.shape[0], ospj('expr', 'checkpoints', 'ccvdg_00', 'result', 'vdg0to3.jpg'))
+save_image(image_inters, image_inters.shape[0], ospj('expr', 'checkpoints', 'ccvdg_00', 'result', 'xxx.jpg'))
